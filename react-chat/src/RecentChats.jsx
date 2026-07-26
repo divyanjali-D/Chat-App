@@ -1,72 +1,73 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
 export default function RecentChats({ session, onSelectChat }) {
-  const [contacts, setContacts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [conversations, setConversations] = useState([])
 
   useEffect(() => {
-    const fetchRecentContacts = async () => {
-      if (!session?.user?.id) {
-        setLoading(false)
-        return
-      }
+    fetchChatsWithUnread()
+  }, [])
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('id', session.user.id)
-        .order('updated_at', { ascending: false })
+  const fetchChatsWithUnread = async () => {
+    const myId = session.user.id
 
-      if (!error) {
-        setContacts(data || [])
-      }
+    // Get all user profiles
+    const { data: profiles } = await supabase.from('profiles').select('*')
+    if (!profiles) return
 
-      setLoading(false)
-    }
+    // Get unread counts per sender
+    const { data: unreadMsgs } = await supabase
+      .from('messages')
+      .select('user_id')
+      .eq('recipient_id', myId)
+      .eq('is_read', false)
 
-    fetchRecentContacts()
-  }, [session?.user?.id])
+    const unreadMap = {}
+    unreadMsgs?.forEach(m => {
+      unreadMap[m.user_id] = (unreadMap[m.user_id] || 0) + 1
+    })
 
-  if (loading) {
-    return <div className="content-card">Loading recent chats...</div>
+    const enriched = profiles
+      .filter(p => p.id !== myId)
+      .map(p => ({
+        ...p,
+        unreadCount: unreadMap[p.id] || 0
+      }))
+
+    setConversations(enriched)
   }
 
   return (
-    <div className="content-card">
-      <div className="section-header">
-        <div>
-          <h2 className="section-title">Recent Chats</h2>
-          <p className="section-subtitle">Choose a contact to continue your conversation.</p>
-        </div>
-      </div>
-
-      {contacts.length === 0 ? (
-        <div className="empty-state">
-          <p className="section-subtitle">No recent chats yet. Open Contacts to start a conversation.</p>
-        </div>
-      ) : (
-        <div className="contacts-list">
-          {contacts.map((contact) => (
-            <div key={contact.id} className="contact-item">
-              <div className="contact-primary">
-                <img
-                  src={contact.avatar_url || 'https://via.placeholder.com/40'}
-                  alt="avatar"
-                  className="contact-avatar"
-                />
-                <div className="contact-info">
-                  <span className="contact-name">{contact.full_name || contact.username}</span>
-                  <span className="contact-username">@{contact.username}</span>
-                </div>
-              </div>
-              <button className="btn btn-primary contact-action" onClick={() => onSelectChat?.(contact)}>
-                Open chat
-              </button>
+    <div style={{ padding: '20px' }}>
+      <h2>Recent Conversations</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {conversations.map((partner) => (
+          <div 
+            key={partner.id}
+            onClick={() => onSelectChat(partner)}
+            style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px', border: '1px solid #eee', borderRadius: '8px',
+              cursor: 'pointer', backgroundColor: '#fff'
+            }}
+          >
+            <div>
+              <strong>{partner.full_name || partner.username}</strong>
+              <div style={{ fontSize: '0.8rem', color: '#666' }}>@{partner.username}</div>
             </div>
-          ))}
-        </div>
-      )}
+
+            {/* Unread Notification Badge */}
+            {partner.unreadCount > 0 && (
+              <span style={{
+                backgroundColor: '#ef4444', color: '#fff', fontSize: '0.75rem',
+                fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px'
+              }}>
+                {partner.unreadCount} new
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

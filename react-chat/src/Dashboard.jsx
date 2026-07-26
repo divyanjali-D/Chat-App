@@ -1,73 +1,63 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 import Contacts from './Contacts'
-import Settings from './Settings'
-import Chat from './Chat'
 import RecentChats from './RecentChats'
+import Chat from './Chat'
+import SettingsModal from './SettingsModal'
 
 export default function Dashboard({ session }) {
-  const [activeTab, setActiveTab] = useState('contacts')
+  const [activeTab, setActiveTab] = useState('chats')
   const [activeChatRecipient, setActiveChatRecipient] = useState(null)
-
-  const handleStartChat = (contact) => {
-    setActiveChatRecipient(contact)
-    setActiveTab('chats')
-  }
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   return (
-    <div className="dashboard-shell">
-      <aside className="dashboard-sidebar">
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'sans-serif', position: 'relative' }}>
+      {/* Navigation Sidebar */}
+      <div style={{ width: '200px', backgroundColor: '#1e1e2d', color: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <div>
-          <h3 className="sidebar-brand">React Chat</h3>
-          <nav className="sidebar-nav">
-            <button
-              className={`nav-button ${activeTab === 'chats' ? 'active' : ''}`}
-              onClick={() => setActiveTab('chats')}
-            >
-              💬 Chats
-            </button>
-            <button
-              className={`nav-button ${activeTab === 'contacts' ? 'active' : ''}`}
-              onClick={() => setActiveTab('contacts')}
-            >
-              👥 Contacts
-            </button>
-            <button
-              className={`nav-button ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
-            >
-              ⚙️ Settings
-            </button>
-          </nav>
+          <h3 style={{ color: '#6366f1' }}>React Chat</h3>
+          <button onClick={() => { setActiveTab('chats'); setActiveChatRecipient(null); }} style={{ display: 'block', width: '100%', padding: '10px', margin: '5px 0', border: 'none', background: activeTab === 'chats' ? '#323248' : 'transparent', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>💬 Chats</button>
+          <button onClick={() => setActiveTab('contacts')} style={{ display: 'block', width: '100%', padding: '10px', margin: '5px 0', border: 'none', background: activeTab === 'contacts' ? '#323248' : 'transparent', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>👥 Contacts</button>
         </div>
 
-        <button className="btn-danger" onClick={() => supabase.auth.signOut()}>
-          Log Out
-        </button>
-      </aside>
+        <button onClick={() => supabase.auth.signOut()} style={{ padding: '8px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Log Out</button>
+      </div>
 
-      <main className="dashboard-main">
-        <div className="content-panel">
-          {activeTab === 'contacts' && (
-            <Contacts session={session} onSelectContact={handleStartChat} />
-          )}
+      {/* Main Panel */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+        {activeTab === 'contacts' && (
+          <Contacts session={session} onSelectContact={(c) => { setActiveChatRecipient(c); setActiveTab('chats'); }} />
+        )}
 
-          {activeTab === 'chats' && (
-            activeChatRecipient ? (
-              <div className="content-card">
-                <button className="btn btn-secondary back-button" onClick={() => setActiveChatRecipient(null)}>
-                  ← Back to Recent Chats
-                </button>
-                <Chat session={session} recipient={activeChatRecipient} />
-              </div>
-            ) : (
-              <RecentChats session={session} onSelectChat={(partner) => setActiveChatRecipient(partner)} />
-            )
-          )}
+        {activeTab === 'chats' && (
+          activeChatRecipient ? (
+            <div>
+              <button onClick={() => setActiveChatRecipient(null)} style={{ marginBottom: '10px' }}>← Back to Conversations</button>
+              <Chat session={session} recipient={activeChatRecipient} />
+            </div>
+          ) : (
+            <RecentChats session={session} onSelectChat={(p) => setActiveChatRecipient(p)} />
+          )
+        )}
+      </div>
 
-          {activeTab === 'settings' && <Settings session={session} />}
-        </div>
-      </main>
+      {/* Bottom-Right Floating Settings Button */}
+      <button 
+        onClick={() => setIsSettingsOpen(true)}
+        style={{
+          position: 'fixed', bottom: '20px', right: '20px',
+          width: '48px', height: '48px', borderRadius: '50%',
+          backgroundColor: '#4f46e5', color: '#fff', border: 'none',
+          boxShadow: '0 4px 10px rgba(0,0,0,0.2)', fontSize: '1.2rem',
+          cursor: 'pointer', zIndex: 999
+        }}
+        title="Settings"
+      >
+        ⚙️
+      </button>
+
+      {/* Settings Modal */}
+      <SettingsModal session={session} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )
 }
