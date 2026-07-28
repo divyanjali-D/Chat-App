@@ -6,15 +6,25 @@ export default function Chat({ session, recipient }) {
   const [newMessage, setNewMessage] = useState('')
   const messagesEndRef = useRef(null)
 
+  if (!session) {
+    return <div>Loading session...</div>
+  }
+
   const user = session.user
-  const isSelf = recipient.id === user.id
+  const defaultRecipient = recipient || user
+  const safeRecipient = {
+    id: defaultRecipient.id,
+    full_name: defaultRecipient.full_name || defaultRecipient.username || defaultRecipient.email || 'Unknown',
+    username: defaultRecipient.username || defaultRecipient.email || 'Unknown'
+  }
+  const isSelf = safeRecipient.id === user.id
 
   useEffect(() => {
     fetchMessages()
     markAsRead()
 
     const channel = supabase
-      .channel(`chat_${user.id}_${recipient.id}`)
+      .channel(`chat_${user.id}_${safeRecipient.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -22,11 +32,11 @@ export default function Chat({ session, recipient }) {
           const msg = payload.new
           const isCurrent = isSelf 
             ? (msg.user_id === user.id && msg.recipient_id === user.id)
-            : (msg.user_id === user.id && msg.recipient_id === recipient.id) ||
-              (msg.user_id === recipient.id && msg.recipient_id === user.id)
+            : (msg.user_id === user.id && msg.recipient_id === safeRecipient.id) ||
+              (msg.user_id === safeRecipient.id && msg.recipient_id === user.id)
 
           if (isCurrent) {
-            setMessages((prev) => [...prev, msg])
+            setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg])
             markAsRead()
           }
         }
@@ -34,28 +44,40 @@ export default function Chat({ session, recipient }) {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [recipient.id])
+  }, [safeRecipient.id])
 
   const fetchMessages = async () => {
-    let query = supabase.from('messages').select('*').order('created_at', { ascending: true })
+    try {
+      let query = supabase.from('messages').select('*').order('created_at', { ascending: true })
 
-    if (isSelf) {
-      query = query.eq('user_id', user.id).eq('recipient_id', user.id)
-    } else {
-      query = query.or(`and(user_id.eq.${user.id},recipient_id.eq.${recipient.id}),and(user_id.eq.${recipient.id},recipient_id.eq.${user.id})`)
+      if (isSelf) {
+        query = query.eq('user_id', user.id).eq('recipient_id', user.id)
+      } else {
+        query = query.or(`and(user_id.eq.${user.id},recipient_id.eq.${safeRecipient.id}),and(user_id.eq.${safeRecipient.id},recipient_id.eq.${user.id})`)
+      }
+
+      const { data, error } = await query
+      if (error) {
+        console.error('Failed to fetch messages:', error)
+        return
+      }
+      setMessages(data || [])
+    } catch (error) {
+      console.error('Unexpected error fetching messages:', error)
     }
-
-    const { data } = await query
-    setMessages(data || [])
   }
 
   const markAsRead = async () => {
     if (!isSelf) {
-      await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('user_id', recipient.id)
-        .eq('recipient_id', user.id)
+      try {
+        await supabase
+          .from('messages')
+          .update({ is_read: true })
+          .eq('user_id', safeRecipient.id)
+          .eq('recipient_id', user.id)
+      } catch (error) {
+        console.error('Failed to mark messages as read:', error)
+      }
     }
   }
 
@@ -65,33 +87,58 @@ export default function Chat({ session, recipient }) {
 
   const sendMessage = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    const content = newMessage.trim()
+    if (!content) return
 
-    const content = newMessage
-    setNewMessage('')
-
-    await supabase.from('messages').insert([{
+    const tempId = `tmp-${Date.now()}`
+    const optimisticMessage = {
+      id: tempId,
       content,
       user_id: user.id,
+      recipient_id: safeRecipient.id,
+      created_at: new Date().toISOString(),
       user_email: user.email,
-      recipient_id: recipient.id,
-      is_read: isSelf
-    }])
+      isPending: true
+    }
+
+    setMessages((prev) => [...prev, optimisticMessage])
+    setNewMessage('')
+
+    const { data, error } = await supabase.from('messages')
+      .insert([{
+        content,
+        user_id: user.id,
+        user_email: user.email,
+        recipient_id: safeRecipient.id
+      }])
+      .select()
+
+    if (error) {
+      console.error('Failed to send message:', error)
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId))
+      return
+    }
+
+    if (data?.length) {
+      setMessages((prev) => prev.map((msg) => msg.id === tempId ? data[0] : msg))
+    } else {
+      await fetchMessages()
+    }
   }
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h3>{isSelf ? '📝 Note to Self' : `Chat with ${recipient.full_name || recipient.username}`}</h3>
+      <h3>{isSelf ? '📝 Note to Self' : `Chat with ${safeRecipient.full_name}`}</h3>
 
-      <div style={{ height: '400px', overflowY: 'auto', border: '1px solid #ddd', padding: '15px', borderRadius: '8px', backgroundColor: '#f9f9fb' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', height: '400px', overflowY: 'auto', border: '1px solid #ddd', padding: '15px', borderRadius: '8px', backgroundColor: '#f9f9fb' }}>
         {messages.map((msg) => {
           const isMe = msg.user_id === user.id
           return (
-            <div key={msg.id} style={{
+            <div key={msg.id || msg.created_at} style={{
               alignSelf: isMe ? 'flex-end' : 'flex-start',
               backgroundColor: isMe ? '#4f46e5' : '#e5e7eb',
               color: isMe ? '#fff' : '#000',
-              padding: '8px 12px', borderRadius: '12px', margin: '6px 0', maxWidth: '70%',
+              padding: '8px 12px', borderRadius: '12px', maxWidth: '70%',
               marginLeft: isMe ? 'auto' : '0'
             }}>
               <div>{msg.content}</div>

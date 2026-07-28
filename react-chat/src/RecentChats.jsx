@@ -15,17 +15,24 @@ export default function RecentChats({ session, onSelectChat }) {
     const { data: profiles } = await supabase.from('profiles').select('*')
     if (!profiles) return
 
-    // Get unread counts per sender
-    const { data: unreadMsgs } = await supabase
-      .from('messages')
-      .select('user_id')
-      .eq('recipient_id', myId)
-      .eq('is_read', false)
+    // Get unread counts per sender, if the column exists.
+    let unreadMap = {}
+    try {
+      const { data: unreadMsgs, error } = await supabase
+        .from('messages')
+        .select('user_id')
+        .eq('recipient_id', myId)
+        .eq('is_read', false)
 
-    const unreadMap = {}
-    unreadMsgs?.forEach(m => {
-      unreadMap[m.user_id] = (unreadMap[m.user_id] || 0) + 1
-    })
+      if (!error && unreadMsgs) {
+        unreadMsgs.forEach(m => {
+          unreadMap[m.user_id] = (unreadMap[m.user_id] || 0) + 1
+        })
+      }
+    } catch (err) {
+      console.warn('Unread count unavailable:', err)
+      unreadMap = {}
+    }
 
     const enriched = profiles
       .filter(p => p.id !== myId)
@@ -33,6 +40,15 @@ export default function RecentChats({ session, onSelectChat }) {
         ...p,
         unreadCount: unreadMap[p.id] || 0
       }))
+
+    // Add self-chat as a recent conversation item for notes to yourself.
+    enriched.unshift({
+      id: myId,
+      username: 'you',
+      full_name: 'Message Yourself',
+      unreadCount: unreadMap[myId] || 0,
+      isSelf: true
+    })
 
     setConversations(enriched)
   }

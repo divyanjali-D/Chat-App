@@ -3,12 +3,11 @@ import { supabase } from './supabaseClient'
 import Contacts from './Contacts'
 import RecentChats from './RecentChats'
 import Chat from './Chat'
-import SettingsModal from './SettingsModal'
+import ContactList from './ContactList'
 
 export default function Dashboard({ session }) {
   const [activeTab, setActiveTab] = useState('chats')
   const [activeChatRecipient, setActiveChatRecipient] = useState(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'sans-serif', position: 'relative' }}>
@@ -26,7 +25,12 @@ export default function Dashboard({ session }) {
       {/* Main Panel */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
         {activeTab === 'contacts' && (
-          <Contacts session={session} onSelectContact={(c) => { setActiveChatRecipient(c); setActiveTab('chats'); }} />
+          <div>
+            <Contacts session={session} onSelectContact={(c) => { setActiveChatRecipient(c); setActiveTab('chats'); }} />
+            <div style={{ marginTop: '24px' }}>
+              <ContactList />
+            </div>
+          </div>
         )}
 
         {activeTab === 'chats' && (
@@ -41,23 +45,6 @@ export default function Dashboard({ session }) {
         )}
       </div>
 
-      {/* Bottom-Right Floating Settings Button */}
-      <button 
-        onClick={() => setIsSettingsOpen(true)}
-        style={{
-          position: 'fixed', bottom: '20px', right: '20px',
-          width: '48px', height: '48px', borderRadius: '50%',
-          backgroundColor: '#4f46e5', color: '#fff', border: 'none',
-          boxShadow: '0 4px 10px rgba(0,0,0,0.2)', fontSize: '1.2rem',
-          cursor: 'pointer', zIndex: 999
-        }}
-        title="Settings"
-      >
-        ⚙️
-      </button>
-
-      {/* Settings Modal */}
-      <SettingsModal session={session} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )
 }
