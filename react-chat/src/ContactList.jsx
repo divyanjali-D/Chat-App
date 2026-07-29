@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './supabaseClient'
 
-export default function ContactList() {
-  // Pre-populated "necessary" contacts
-  const [contacts] = useState([
+export default function ContactList({ onStartMessage = () => {}, isAddFormOpen = false, onToggleAddForm = () => {} }) {
+  const [contacts, setContacts] = useState([
     { 
       id: 1, 
       name: 'Emergency Services', 
@@ -33,12 +33,136 @@ export default function ContactList() {
     }
   ])
 
+  // State for Add Contact form
+  const [showAddForm, setShowAddForm] = useState(isAddFormOpen)
+  const [newName, setNewName] = useState('')
+  const [newRole, setNewRole] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+
+  useEffect(() => {
+    setShowAddForm(isAddFormOpen)
+  }, [isAddFormOpen])
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!error && data?.length > 0) {
+        setContacts(
+          data.map((contact) => ({
+            ...contact,
+            avatarColor: contact.avatar_color || '#0084ff',
+            role: contact.role || 'Contact'
+          }))
+        )
+      }
+    }
+
+    fetchContacts()
+  }, [])
+
+  // Add new contact handler
+  const handleAddContact = async (e) => {
+    e.preventDefault()
+    if (!newName.trim() || !newPhone.trim()) return
+
+    const colors = ['#F44336', '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4']
+    const randomColor = colors[Math.floor(Math.random() * colors.length)]
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert([
+        {
+          name: newName,
+          role: newRole || 'Contact',
+          phone: newPhone,
+          avatar_color: randomColor
+        }
+      ])
+      .select()
+
+    if (error) {
+      alert('Error adding contact: ' + error.message)
+      return
+    }
+
+    if (data) {
+      setContacts((prev) => [...prev, {
+        ...data[0],
+        avatarColor: data[0].avatar_color || randomColor,
+        role: data[0].role || 'Contact'
+      }])
+    }
+
+    setNewName('')
+    setNewRole('')
+    setNewPhone('')
+    setShowAddForm(false)
+    onToggleAddForm()
+  }
+
   return (
     <div style={{ maxWidth: '400px', margin: '20px auto', fontFamily: 'sans-serif' }}>
-      <h2 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
-        Directory
-      </h2>
-      
+      <h2 style={{ margin: '0 0 12px 0', fontSize: '1.4rem' }}>Directory</h2>
+
+      {/* Add Contact Form Drawer */}
+      {showAddForm && (
+        <form onSubmit={handleAddContact} style={{
+          backgroundColor: '#f9f9fb',
+          padding: '12px',
+          borderRadius: '8px',
+          marginTop: '12px',
+          border: '1px solid #e0e0e0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <h4 style={{ margin: '0 0 4px 0', color: '#333' }}>New Contact Details</h4>
+          <input 
+            type="text" 
+            placeholder="Full Name *" 
+            value={newName} 
+            onChange={(e) => setNewName(e.target.value)} 
+            required 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Role / Title (e.g., Manager)" 
+            value={newRole} 
+            onChange={(e) => setNewRole(e.target.value)} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="tel" 
+            placeholder="Phone Number *" 
+            value={newPhone} 
+            onChange={(e) => setNewPhone(e.target.value)} 
+            required 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <button 
+            type="submit" 
+            style={{
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              padding: '8px',
+              borderRadius: '4px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              marginTop: '4px'
+            }}
+          >
+            Save Contact
+          </button>
+        </form>
+      )}
+
+      {/* Contact List Rendering */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
         {contacts.map((contact) => (
           <div 
@@ -53,7 +177,6 @@ export default function ContactList() {
               backgroundColor: '#fff'
             }}
           >
-            {/* Contact Info Section */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
                 width: '40px',
@@ -76,24 +199,32 @@ export default function ContactList() {
               </div>
             </div>
 
-            {/* Call Option Button */}
-            <a 
-              href={`tel:${contact.phone}`}
+            <button
+              type="button"
+              onClick={() => onStartMessage({
+                id: contact.id,
+                full_name: contact.name,
+                username: contact.name.toLowerCase().replace(/\s+/g, ''),
+                role: contact.role,
+                phone: contact.phone,
+                avatarColor: contact.avatarColor
+              })}
               style={{
-                textDecoration: 'none',
+                border: 'none',
                 backgroundColor: '#0084ff',
                 color: 'white',
                 padding: '8px 16px',
                 borderRadius: '20px',
                 fontSize: '0.9rem',
                 fontWeight: 'bold',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px'
               }}
             >
-              📞 Call
-            </a>
+              💬 Message
+            </button>
           </div>
         ))}
       </div>
