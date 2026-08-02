@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import Auth from './Auth'
 import Dashboard from './Dashboard'
 import SettingsModal from './SettingsModal'
+import LandingPage from './LandingPage'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -23,7 +24,7 @@ export default function App() {
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
       {!session ? (
-        <Auth />
+        <LandingPage />
       ) : (
         <>
           <Dashboard session={session} />
