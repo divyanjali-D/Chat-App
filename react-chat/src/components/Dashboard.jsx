@@ -21,29 +21,60 @@ export default function Dashboard({ session, onOpenSettings }) {
   const [recentChats, setRecentChats] = useState([])
   const [showAddContact, setShowAddContact] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const user = session?.user
 
   useEffect(() => {
     if (!user) return
 
-    setRecentChats((prev) => {
-      if (prev.some((chat) => chat.id === user.id)) return prev
-      return [{
-        id: user.id,
-        username: 'you',
-        full_name: 'Message Yourself',
-        isSelf: true
-      }, ...prev]
-    })
+    const fetchRecentConversations = async () => {
+      try {
+        const { data: userMsgs } = await supabase
+          .from('messages')
+          .select('user_id, recipient_id')
+          .or(`user_id.eq.${user.id},recipient_id.eq.${user.id}`)
+
+        const partnerIds = new Set()
+        if (userMsgs) {
+          userMsgs.forEach((msg) => {
+            if (msg.user_id && msg.user_id !== user.id) partnerIds.add(msg.user_id)
+            if (msg.recipient_id && msg.recipient_id !== user.id) partnerIds.add(msg.recipient_id)
+          })
+        }
+
+        let partners = []
+        if (partnerIds.size > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', Array.from(partnerIds))
+
+          if (profiles) partners = profiles
+        }
+
+        const selfChat = {
+          id: user.id,
+          username: 'you',
+          full_name: 'Message Yourself',
+          isSelf: true
+        }
+
+        setRecentChats([selfChat, ...partners])
+      } catch (e) {
+        console.error('Error fetching recent conversations:', e)
+      }
+    }
+
+    fetchRecentConversations()
   }, [user])
 
   const ensureRecentChat = (recipient) => {
     if (!recipient) return
 
     setRecentChats((prev) => {
-      if (prev.some((chat) => String(chat.id) === String(recipient.id))) return prev
-      return [{ ...recipient }, ...prev]
+      const filtered = prev.filter((chat) => String(chat.id) !== String(recipient.id))
+      return [{ ...recipient }, ...filtered]
     })
   }
 
@@ -102,7 +133,7 @@ export default function Dashboard({ session, onOpenSettings }) {
         <div>
           {/* Logo Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '32px', paddingLeft: '8px' }}>
-            <div style={{
+            <div className="dash-logo-icon" style={{
               width: '40px',
               height: '40px',
               borderRadius: '12px',
@@ -126,6 +157,7 @@ export default function Dashboard({ session, onOpenSettings }) {
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               onClick={() => { handleNavClick('chats'); setActiveChatRecipient(null); }}
+              className="dash-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -139,8 +171,7 @@ export default function Dashboard({ session, onOpenSettings }) {
                 boxShadow: activeTab === 'chats' && !activeChatRecipient ? 'inset 0 0 0 1px var(--primary)' : 'none',
                 fontWeight: activeTab === 'chats' && !activeChatRecipient ? 700 : 500,
                 cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s ease'
+                textAlign: 'left'
               }}
             >
               <MessageSquare size={18} color={activeTab === 'chats' ? 'var(--primary)' : 'var(--text)'} />
@@ -149,6 +180,7 @@ export default function Dashboard({ session, onOpenSettings }) {
 
             <button
               onClick={() => handleNavClick('contacts')}
+              className="dash-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -162,8 +194,7 @@ export default function Dashboard({ session, onOpenSettings }) {
                 boxShadow: activeTab === 'contacts' ? 'inset 0 0 0 1px var(--primary)' : 'none',
                 fontWeight: activeTab === 'contacts' ? 700 : 500,
                 cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s ease'
+                textAlign: 'left'
               }}
             >
               <Users size={18} color={activeTab === 'contacts' ? 'var(--primary)' : 'var(--text)'} />
@@ -172,6 +203,7 @@ export default function Dashboard({ session, onOpenSettings }) {
 
             <button
               onClick={() => handleSelectChat({ id: user?.id, username: 'you', full_name: 'Message Yourself', isSelf: true })}
+              className="dash-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -183,8 +215,7 @@ export default function Dashboard({ session, onOpenSettings }) {
                 backgroundColor: 'transparent',
                 color: 'var(--text)',
                 cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s ease'
+                textAlign: 'left'
               }}
             >
               <Bookmark size={18} color="var(--accent)" />
@@ -193,6 +224,7 @@ export default function Dashboard({ session, onOpenSettings }) {
 
             <button
               onClick={() => { onOpenSettings?.(); setIsMobileMenuOpen(false); }}
+              className="dash-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -204,8 +236,7 @@ export default function Dashboard({ session, onOpenSettings }) {
                 backgroundColor: 'transparent',
                 color: 'var(--text)',
                 cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s ease'
+                textAlign: 'left'
               }}
             >
               <SettingsIcon size={18} color="var(--secondary)" />
@@ -216,7 +247,7 @@ export default function Dashboard({ session, onOpenSettings }) {
 
         {/* Sidebar Footer User Profile */}
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
-          <div style={{
+          <div className="dash-user-card" style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -226,7 +257,7 @@ export default function Dashboard({ session, onOpenSettings }) {
             border: '1px solid var(--border-subtle)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-              <div style={{
+              <div className="dash-avatar" style={{
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
@@ -245,15 +276,16 @@ export default function Dashboard({ session, onOpenSettings }) {
                   {user?.email?.split('@')[0]}
                 </div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block' }}></span>
+                  <span className="online-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block' }}></span>
                   Online
                 </div>
               </div>
             </div>
 
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={() => setShowLogoutConfirm(true)}
               title="Log Out"
+              className="dash-logout-btn"
               style={{
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -263,8 +295,7 @@ export default function Dashboard({ session, onOpenSettings }) {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
+                justifyContent: 'center'
               }}
             >
               <LogOut size={16} />
@@ -305,7 +336,7 @@ export default function Dashboard({ session, onOpenSettings }) {
               >
                 ← Back to Conversations
               </button>
-              <Chat session={session} recipient={activeChatRecipient} onOpenChat={ensureRecentChat} />
+              <Chat session={session} recipient={activeChatRecipient} onOpenChat={ensureRecentChat} onLogout={() => setShowLogoutConfirm(true)} />
             </div>
           ) : (
             <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
@@ -314,6 +345,88 @@ export default function Dashboard({ session, onOpenSettings }) {
           )
         )}
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowLogoutConfirm(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(19, 1, 12, 0.85)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+        >
+          <div className="glass-panel" style={{
+            maxWidth: '400px',
+            width: '100%',
+            padding: '28px',
+            textAlign: 'center',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(239, 68, 68, 0.2)'
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#fca5a5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px'
+            }}>
+              <LogOut size={26} />
+            </div>
+
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)' }}>
+              Confirm Log Out
+            </h3>
+
+            <p style={{ margin: '0 0 24px', fontSize: '0.92rem', color: 'rgba(252, 217, 239, 0.7)', lineHeight: 1.5 }}>
+              Are you sure you want to log out of your session? You will need to sign in again to access your chats.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="btn-cyber-ghost"
+                style={{ flex: 1, padding: '10px 18px', border: '1px solid var(--border-subtle)' }}
+              >
+                Cancel
+              </button>
+
+              <button 
+                onClick={() => supabase.auth.signOut()}
+                style={{
+                  flex: 1,
+                  padding: '10px 18px',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  border: 'none',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <LogOut size={16} /> Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Mail, Lock, LogIn, UserPlus, ArrowLeft } from 'lucide-react'
+import { Mail, Lock, LogIn, UserPlus, ArrowLeft, X } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
 export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
@@ -13,6 +13,16 @@ export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
     setMode(initialMode)
     setError('')
   }, [initialMode])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && onBack) {
+        onBack()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onBack])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -39,38 +49,79 @@ export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
     onSwitchMode?.(newMode)
   }
 
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget && onBack) {
+      onBack()
+    }
+  }
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px',
-      backgroundColor: 'var(--background)'
-    }}>
-      <div className="glass-panel" style={{
-        width: '100%',
-        maxWidth: '440px',
-        padding: '32px',
-        position: 'relative',
-        boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px var(--glow-primary)'
-      }}>
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="btn-cyber-ghost"
-            style={{
-              padding: '6px 12px',
-              fontSize: '0.85rem',
-              marginBottom: '16px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-        )}
+    <div 
+      onClick={handleBackdropClick}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        backgroundColor: 'rgba(19, 1, 12, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px'
+      }}
+    >
+      <div 
+        className="glass-panel" 
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          padding: '32px',
+          position: 'relative',
+          border: '1px solid var(--border-glow)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px var(--glow-primary)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          {onBack ? (
+            <button
+              onClick={onBack}
+              className="btn-cyber-ghost"
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <ArrowLeft size={16} /> Back
+            </button>
+          ) : <div />}
+
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{
+                border: 'none',
+                background: 'rgba(246, 126, 198, 0.1)',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
 
         <h2 className="text-gradient-primary" style={{ margin: '0 0 6px', fontSize: '1.8rem', fontWeight: 800 }}>
           {mode === 'login' ? 'Welcome Back' : 'Create Account'}

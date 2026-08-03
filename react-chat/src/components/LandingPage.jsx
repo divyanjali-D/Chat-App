@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { 
   MessageSquare, 
   Paperclip, 
@@ -7,10 +6,8 @@ import {
   ShieldCheck, 
   Smartphone, 
   ArrowRight, 
-  Sparkles, 
-  X 
+  Sparkles 
 } from 'lucide-react'
-import Auth from './Auth'
 
 const features = [
   {
@@ -64,54 +61,13 @@ const steps = [
 ]
 
 export default function LandingPage({ onLoginClick, onSignUpClick }) {
-  const [showAuth, setShowAuth] = useState(false)
-  const [authMode, setAuthMode] = useState('login')
-
   const handleGetStarted = () => {
-    setShowAuth(true)
-    setAuthMode('signup')
-    onSignUpClick?.()
-  }
+    onSignUpClick?.('signup');
+  };
 
   const handleLogin = () => {
-    setShowAuth(true)
-    setAuthMode('login')
-    onLoginClick?.()
-  }
-
-  if (showAuth) {
-    return (
-      <div style={{ position: 'relative', minHeight: '100vh', backgroundColor: 'var(--background)' }}>
-        <button
-          onClick={() => setShowAuth(false)}
-          style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            background: 'rgba(246, 126, 198, 0.15)',
-            border: '1px solid var(--border-subtle)',
-            color: 'var(--text)',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            cursor: 'pointer',
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          aria-label="Close"
-        >
-          <X size={20} />
-        </button>
-        <Auth 
-          initialMode={authMode} 
-          onSwitchMode={setAuthMode}
-          onBack={() => setShowAuth(false)}
-        />
-      </div>
-    )
-  }
+    onLoginClick?.('login');
+  };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', color: 'var(--text)' }}>
@@ -154,6 +110,8 @@ export default function LandingPage({ onLoginClick, onSignUpClick }) {
           </div>
         </div>
       </nav>
+      
+      
 
       {/* Hero Section */}
       <header style={{ padding: '140px 24px 80px', maxWidth: '1200px', margin: '0 auto' }}>

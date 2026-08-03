@@ -31,7 +31,7 @@ const formatMessageTime = (value) => {
   }).format(date)
 }
 
-export default function Chat({ session, recipient, onOpenChat }) {
+export default function Chat({ session, recipient, onOpenChat, onLogout }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -53,6 +53,21 @@ export default function Chat({ session, recipient, onOpenChat }) {
     }
   }, [recipient, onOpenChat])
 
+  const isMessageForCurrentChat = (msg, userId, recipientObj) => {
+    if (!msg || !userId) return false
+    const isSelf = recipientObj?.isSelf || String(recipientObj?.id) === String(userId)
+    if (isSelf) {
+      return String(msg.user_id) === String(userId) && (!msg.recipient_id || String(msg.recipient_id) === String(userId))
+    }
+    if (recipientObj?.id) {
+      return (
+        (String(msg.user_id) === String(userId) && String(msg.recipient_id) === String(recipientObj.id)) ||
+        (String(msg.user_id) === String(recipientObj.id) && String(msg.recipient_id) === String(userId))
+      )
+    }
+    return true
+  }
+
   useEffect(() => {
     const fetchMessages = async () => {
       const { data, error } = await supabase
@@ -60,18 +75,29 @@ export default function Chat({ session, recipient, onOpenChat }) {
         .select('*')
         .order('created_at', { ascending: true })
 
-      if (!error) setMessages(data || [])
+      if (!error && data) {
+        const filtered = data.filter((msg) => isMessageForCurrentChat(msg, user.id, recipient))
+        setMessages(filtered)
+      }
     }
 
     fetchMessages()
 
     const channel = supabase
-      .channel('chat_room')
+      .channel(`chat_${user.id}_${recipient?.id || 'global'}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new])
+          const newMsg = payload.new
+          if (!newMsg) return
+
+          if (isMessageForCurrentChat(newMsg, user.id, recipient)) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+          }
         }
       )
       .subscribe()
@@ -79,11 +105,63 @@ export default function Chat({ session, recipient, onOpenChat }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [recipient?.id, recipient?.isSelf, user.id])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const ensureProfilesExist = async (userObj, recipientObj) => {
+    if (!userObj) return
+    try {
+      await supabase.from('profiles').upsert({
+        id: userObj.id,
+        username: userObj.email?.split('@')[0] || 'user',
+        full_name: userObj.email?.split('@')[0] || 'User',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id', ignoreDuplicates: true })
+
+      if (recipientObj?.id && recipientObj.id !== userObj.id) {
+        await supabase.from('profiles').upsert({
+          id: recipientObj.id,
+          username: recipientObj.username || recipientObj.email?.split('@')[0] || 'user',
+          full_name: recipientObj.full_name || recipientObj.name || 'User',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id', ignoreDuplicates: true })
+      }
+    } catch (e) {
+      console.warn('Profile sync warning:', e)
+    }
+  }
+
+  const insertMessageWithFallback = async (payload) => {
+    let { data, error } = await supabase.from('messages').insert([payload]).select()
+
+    if (error && (error.code === '23503' || error.message?.toLowerCase().includes('foreign key'))) {
+      await ensureProfilesExist(user, recipient)
+      const retryRes = await supabase.from('messages').insert([payload]).select()
+      data = retryRes.data
+      error = retryRes.error
+
+      if (error && (error.code === '23503' || error.message?.toLowerCase().includes('foreign key'))) {
+        const fallbackPayload = { ...payload }
+        delete fallbackPayload.recipient_id
+        const fallbackRes = await supabase.from('messages').insert([fallbackPayload]).select()
+        data = fallbackRes.data
+        error = fallbackRes.error
+      }
+    }
+
+    if (!error && data && data.length > 0) {
+      const createdMessage = data[0]
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === createdMessage.id)) return prev
+        return [...prev, createdMessage]
+      })
+    } else if (error) {
+      alert(error.message)
+    }
+  }
 
   const sendMessage = async (e) => {
     e.preventDefault()
@@ -97,16 +175,15 @@ export default function Chat({ session, recipient, onOpenChat }) {
       onOpenChat?.(recipient)
     }
 
-    const { error } = await supabase.from('messages').insert([
-      {
-        content,
-        user_email: user.email,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    const targetRecipientId = recipient?.id || user.id
 
-    if (error) alert(error.message)
+    await insertMessageWithFallback({
+      content,
+      user_email: user.email,
+      user_id: user.id,
+      recipient_id: targetRecipientId,
+      created_at: new Date().toISOString(),
+    })
   }
 
   const handleFileUpload = async (e) => {
@@ -136,16 +213,16 @@ export default function Chat({ session, recipient, onOpenChat }) {
       onOpenChat?.(recipient)
     }
 
-    const { error: msgError } = await supabase.from('messages').insert([
-      {
-        content: data.publicUrl,
-        user_email: user.email,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    const targetRecipientId = recipient?.id || user.id
 
-    if (msgError) alert(msgError.message)
+    await insertMessageWithFallback({
+      content: data.publicUrl,
+      user_email: user.email,
+      user_id: user.id,
+      recipient_id: targetRecipientId,
+      created_at: new Date().toISOString(),
+    })
+
     setUploading(false)
     e.target.value = ''
   }
@@ -252,7 +329,7 @@ export default function Chat({ session, recipient, onOpenChat }) {
         </div>
 
         <button 
-          onClick={() => supabase.auth.signOut()} 
+          onClick={onLogout || (() => supabase.auth.signOut())} 
           className="btn-cyber-secondary"
           style={{ padding: '6px 14px', fontSize: '0.85rem' }}
         >
