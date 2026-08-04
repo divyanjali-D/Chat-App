@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Mail, Lock, LogIn, UserPlus, ArrowLeft, X } from 'lucide-react'
+import { Mail, Lock, LogIn, UserPlus, ArrowLeft, X, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
 export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
@@ -8,6 +8,7 @@ export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState(initialMode)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     setMode(initialMode)
@@ -156,16 +157,38 @@ export default function Auth({ initialMode = 'login', onSwitchMode, onBack }) {
           <div style={{ position: 'relative' }}>
             <input
               className="cyber-input"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               minLength={6}
-              style={{ paddingLeft: '40px' }}
+              style={{ paddingLeft: '40px', paddingRight: '40px' }}
             />
             <Lock size={18} color="var(--primary)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                opacity: 0.7,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           <button className="btn-cyber-primary" type="submit" disabled={loading} style={{ width: '100%', marginTop: '6px', padding: '12px' }}>
