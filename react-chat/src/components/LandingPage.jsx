@@ -8,6 +8,7 @@ import {
   ArrowRight, 
   Sparkles 
 } from 'lucide-react'
+import LiquidEther from '../LiquidEther'
 
 const features = [
   {
@@ -70,8 +71,28 @@ export default function LandingPage({ onLoginClick, onSignUpClick }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', color: 'var(--text)' }}>
-      {/* Top Navbar */}
+    <div style={{ position: 'relative', minHeight: '100vh', backgroundColor: 'var(--background)', color: 'var(--text)' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+        <LiquidEther
+          colors={[ '#5227FF', '#e80b0b', '#000000' ]}
+          mouseForce={20}
+          cursorSize={100}
+          isViscous={false}
+          viscous={30}
+          iterationsViscous={32}
+          iterationsPoisson={32}
+          resolution={0.5}
+          isBounce={false}
+          autoDemo={true}
+          autoSpeed={0.5}
+          autoIntensity={2.2}
+          takeoverDuration={0.25}
+          autoResumeDelay={3000}
+          autoRampDuration={0.6}
+        />
+      </div>
+      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+        {/* Top Navbar */}
       <nav style={{
         position: 'fixed',
         top: 0, left: 0, right: 0,
@@ -83,17 +104,14 @@ export default function LandingPage({ onLoginClick, onSignUpClick }) {
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
+            <div className="nav-logo-icon" style={{
               width: '36px',
               height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 14px var(--glow-primary)'
             }}>
-              <MessageSquare size={20} color="#13010c" />
+              <img src="/favicon.svg" alt="React Chat Logo" style={{ width: '100%', height: '100%' }} />
             </div>
             <span className="text-gradient-primary" style={{ fontWeight: 800, fontSize: '1.25rem', fontFamily: 'Outfit, sans-serif' }}>
               React Chat
@@ -252,6 +270,7 @@ export default function LandingPage({ onLoginClick, onSignUpClick }) {
           </button>
         </div>
       </footer>
+      </div>
     </div>
   )
 }

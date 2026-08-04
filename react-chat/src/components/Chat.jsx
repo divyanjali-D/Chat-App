@@ -8,7 +8,9 @@ import {
   LogOut, 
   X, 
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  User,
+  Trash2
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
@@ -37,6 +39,7 @@ export default function Chat({ session, recipient, onOpenChat, onLogout }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
+  const [messageToDelete, setMessageToDelete] = useState(null)
   
   // Chat Room Name state & editing mode
   const [chatName, setChatName] = useState(recipient?.full_name || recipient?.name || recipient?.username || 'Group Chat')
@@ -184,6 +187,18 @@ export default function Chat({ session, recipient, onOpenChat, onLogout }) {
       recipient_id: targetRecipientId,
       created_at: new Date().toISOString(),
     })
+  }
+
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    
+    const { error } = await supabase.from('messages').delete().eq('id', messageToDelete.id);
+    if (!error) {
+      setMessages((prev) => prev.filter((m) => m.id !== messageToDelete.id));
+    } else {
+      alert(error.message);
+    }
+    setMessageToDelete(null);
   }
 
   const handleFileUpload = async (e) => {
@@ -370,49 +385,105 @@ export default function Chat({ session, recipient, onOpenChat, onLogout }) {
               <div 
                 key={msg.id} 
                 style={{
-                  alignSelf: isMe ? 'flex-end' : 'flex-start',
-                  maxWidth: '75%',
                   display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: isMe ? 'flex-end' : 'flex-start'
+                  flexDirection: isMe ? 'row-reverse' : 'row',
+                  alignItems: 'flex-end',
+                  alignSelf: isMe ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%',
+                  gap: '10px',
+                  marginBottom: '16px'
                 }}
               >
-                <div style={{ fontSize: '0.72rem', color: 'rgba(252, 217, 239, 0.6)', marginBottom: '4px', padding: '0 4px' }}>
-                  {isMe ? 'You' : (msg.user_email?.split('@')[0] || 'User')}
-                </div>
-
+                {/* Avatar */}
                 <div style={{
-                  backgroundColor: isMe ? 'var(--primary)' : 'rgba(38, 9, 29, 0.95)',
-                  color: isMe ? '#13010c' : 'var(--text)',
-                  fontWeight: isMe ? 600 : 400,
-                  padding: isImage ? '6px' : '10px 16px',
-                  borderRadius: isMe ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-                  boxShadow: isMe ? '0 4px 18px var(--glow-primary)' : '0 4px 14px rgba(0, 0, 0, 0.4)',
-                  border: isMe ? 'none' : '1px solid var(--border-subtle)',
-                  wordBreak: 'break-word',
-                  fontSize: '0.95rem'
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: isMe ? 'var(--primary)' : 'var(--surface-card)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
                 }}>
-                  {isImage ? (
-                    <img 
-                      src={msg.content} 
-                      alt="Attachment" 
-                      onClick={() => setPreviewImage(msg.content)}
-                      style={{ 
-                        maxWidth: '100%', 
-                        maxHeight: '260px', 
-                        borderRadius: '12px',
-                        display: 'block',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s ease'
-                      }} 
-                    />
-                  ) : (
-                    msg.content
-                  )}
+                  <User size={16} color={isMe ? '#13010c' : 'var(--text)'} />
                 </div>
 
-                <div style={{ fontSize: '0.65rem', color: 'rgba(252, 217, 239, 0.4)', marginTop: '4px', padding: '0 4px' }}>
-                  {time}
+                {/* Message Content */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: isMe ? 'flex-end' : 'flex-start',
+                  gap: '4px'
+                }}>
+                  {/* Message Header */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'baseline', 
+                    gap: '8px', 
+                    padding: '0 4px', 
+                    flexDirection: isMe ? 'row-reverse' : 'row',
+                    marginBottom: '2px'
+                  }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
+                      {isMe ? 'You' : (msg.user_email?.split('@')[0] || 'User')}
+                    </span>
+                    <span style={{ fontSize: '0.65rem', color: 'rgba(252, 217, 239, 0.5)' }}>
+                      {time}
+                    </span>
+                    {isMe && (
+                      <button
+                        onClick={() => setMessageToDelete(msg)}
+                        title="Delete Message"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent)',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          opacity: 0.6,
+                          transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Message Bubble */}
+                  <div style={{
+                    backgroundColor: isMe ? 'var(--primary)' : 'var(--surface-card)',
+                    color: isMe ? '#13010c' : 'var(--text)',
+                    padding: isImage ? '4px' : '10px 14px',
+                    borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                    border: isMe ? 'none' : '1px solid var(--border-subtle)',
+                    wordBreak: 'break-word',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.5',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}>
+                    {isImage ? (
+                      <img 
+                        src={msg.content} 
+                        alt="Attachment" 
+                        onClick={() => setPreviewImage(msg.content)}
+                        style={{ 
+                          maxWidth: '100%', 
+                          maxHeight: '260px', 
+                          borderRadius: '12px',
+                          display: 'block',
+                          cursor: 'pointer'
+                        }} 
+                      />
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -577,23 +648,69 @@ export default function Chat({ session, recipient, onOpenChat, onLogout }) {
               onClick={() => setPreviewImage(null)}
               style={{
                 position: 'absolute',
-                top: '-16px',
-                right: '-16px',
-                backgroundColor: 'var(--primary)',
-                color: '#13010c',
-                border: 'none',
+                top: '-40px',
+                right: '0px',
+                background: 'rgba(246, 126, 198, 0.15)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--primary)',
                 borderRadius: '50%',
                 width: '32px',
                 height: '32px',
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 'bold'
+                cursor: 'pointer'
               }}
             >
               <X size={18} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {messageToDelete && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 150
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) setMessageToDelete(null); }}
+        >
+          <div className="glass-panel" style={{
+            padding: '24px',
+            maxWidth: '360px',
+            width: '90%',
+            textAlign: 'center',
+            borderRadius: '16px',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <Trash2 size={32} color="var(--primary)" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem', color: 'var(--text)' }}>Delete Message?</h3>
+            <p style={{ margin: '0 0 24px', fontSize: '0.9rem', color: 'rgba(252, 217, 239, 0.7)' }}>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                className="btn-cyber-ghost" 
+                onClick={() => setMessageToDelete(null)}
+                style={{ flex: 1, padding: '10px' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-cyber-primary" 
+                onClick={handleDeleteMessage}
+                style={{ flex: 1, padding: '10px', background: 'rgba(246, 126, 198, 0.2)' }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

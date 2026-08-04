@@ -136,20 +136,16 @@ export default function Dashboard({ session, onOpenSettings }) {
             <div className="dash-logo-icon" style={{
               width: '40px',
               height: '40px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 14px var(--glow-primary)'
+              justifyContent: 'center'
             }}>
-              <MessageSquare size={22} color="#13010c" />
+              <img src="/favicon.svg" alt="React Chat Logo" style={{ width: '100%', height: '100%' }} />
             </div>
             <div>
               <h2 className="text-gradient-primary" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
                 React Chat
               </h2>
-              <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600, letterSpacing: '0.05em' }}>REALTIME CYBER</span>
             </div>
           </div>
 

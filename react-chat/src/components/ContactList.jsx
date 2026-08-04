@@ -5,28 +5,28 @@ import { supabase } from '../supabaseClient'
 export default function ContactList({ onStartMessage = () => {}, isAddFormOpen = false, onToggleAddForm = () => {} }) {
   const [contacts, setContacts] = useState([
     { 
-      id: 1, 
+      id: '11111111-1111-1111-1111-111111111111', 
       name: 'Emergency Services', 
       role: 'Urgent Assistance', 
       phone: '911', 
       avatarColor: '#F44336' 
     },
     { 
-      id: 2, 
+      id: '22222222-2222-2222-2222-222222222222', 
       name: 'App Support', 
       role: 'Technical Help', 
       phone: '+18005550199', 
       avatarColor: '#4CAF50' 
     },
     { 
-      id: 3, 
+      id: '33333333-3333-3333-3333-333333333333', 
       name: 'Jane Doe', 
       role: 'System Admin', 
       phone: '+12345678900', 
       avatarColor: '#2196F3' 
     },
     { 
-      id: 4, 
+      id: '44444444-4444-4444-4444-444444444444', 
       name: 'John Smith', 
       role: 'Colleague', 
       phone: '+19876543210', 
